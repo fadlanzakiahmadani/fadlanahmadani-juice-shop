@@ -1,0 +1,91 @@
+
+name: Snyk SCA Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - fix-vulnerability-tar
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  scan-root:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Scan root dependencies
+        run: snyk test --severity-threshold=high
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  scan-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Scan frontend dependencies
+        run: snyk test --severity-threshold=high
+        working-directory: frontend
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  monitor:
+    runs-on: ubuntu-latest
+    needs:
+      - scan-root
+      - scan-frontend
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install Snyk CLI
+        run: npm install -g snyk
+
+      - name: Monitor root dependencies
+        run: snyk monitor
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+      - name: Monitor frontend dependencies
+        run: snyk monitor
+        working-directory: frontend
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
